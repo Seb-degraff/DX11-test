@@ -2,35 +2,19 @@
 //
 
 #include "framework.h"
+#include "utils.h"
 #include "DX11-test.h"
-#include <stdio.h>
-#include <vadefs.h>
+#include "renderer.hpp";
 
 #define MAX_LOADSTRING 100
 
-#define WIDE2(x) L##x
-#define WIDE1(x) WIDE2(x)
 
-#define log(fmt, ...) log_impl(fmt, WIDE1(__FILE__), __LINE__, __VA_ARGS__)
-
-void log_impl(LPCWSTR format, const wchar_t* file, int line, ...)
-{
-    WCHAR buffer[2048];
-    WCHAR buffer2[2048];
-    va_list arg;
-    va_start(arg, line);
-    _vsnwprintf_s(buffer, sizeof(buffer), format, arg);
-    _snwprintf_s(buffer2, sizeof(buffer2), L"%s (%s:%i)\n", buffer, file, line);
-    va_end(arg);
-
-    OutputDebugString(buffer2);
-}
 
 // Global Variables:
 HINSTANCE instance_handle;
 HWND window_handle;
-WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+
+
 
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
@@ -150,7 +134,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    log(L"Hello mother fucking world!", 134);
+    LOG(L"Hello mother fucking world!", 134);
 
     int screenWidth, screenHeight;
 
@@ -159,6 +143,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     screenHeight = 0;
 
     initialize_window(screenWidth, screenHeight);
+    renderer_init(screenWidth, screenHeight, window_handle);
 
     //
     // Main loop
@@ -187,5 +172,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 void draw_frame()
 {
-    log(L"Frame", 0);
+    renderer_frame_begin();
+    renderer_frame_end();
+    //log(L"Frame", 0);
 }

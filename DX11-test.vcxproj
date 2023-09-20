@@ -164,6 +164,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d3d11.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -190,6 +191,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DX11-test.cpp" />
+    <ClCompile Include="renderer.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DX11-test.rc" />
