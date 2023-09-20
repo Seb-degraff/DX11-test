@@ -349,58 +349,49 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	return true;
 }
 
-void graphics_shutdown()
+void renderer_shutdown()
 {
 	// Before shutting down set to windowed mode or when you release the swap chain it will throw an exception.
-	if (m_swapChain)
-	{
+	if (m_swapChain) {
 		m_swapChain->SetFullscreenState(false, NULL);
 	}
 
-	if (m_rasterState)
-	{
+	if (m_rasterState) {
 		m_rasterState->Release();
 		m_rasterState = 0;
 	}
 
-	if (m_depthStencilView)
-	{
+	if (m_depthStencilView) {
 		m_depthStencilView->Release();
 		m_depthStencilView = 0;
 	}
 
-	if (m_depthStencilState)
-	{
+	if (m_depthStencilState) {
 		m_depthStencilState->Release();
 		m_depthStencilState = 0;
 	}
 
-	if (m_depthStencilBuffer)
-	{
+	if (m_depthStencilBuffer) {
 		m_depthStencilBuffer->Release();
 		m_depthStencilBuffer = 0;
 	}
 
-	if (m_renderTargetView)
-	{
+	if (m_renderTargetView) {
 		m_renderTargetView->Release();
 		m_renderTargetView = 0;
 	}
 
-	if (m_deviceContext)
-	{
+	if (m_deviceContext) {
 		m_deviceContext->Release();
 		m_deviceContext = 0;
 	}
 
-	if (m_device)
-	{
+	if (m_device) {
 		m_device->Release();
 		m_device = 0;
 	}
 
-	if (m_swapChain)
-	{
+	if (m_swapChain) {
 		m_swapChain->Release();
 		m_swapChain = 0;
 	}
@@ -449,5 +440,112 @@ void renderer_frame_end()
 	}
 }
 
+ID3D11VertexShader* m_vertexShader;
+ID3D11PixelShader* m_pixelShader;
+ID3D11InputLayout* m_layout;
+ID3D11Buffer* m_matrixBuffer;
+
+void shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
+{
+	ID3D11Device* device = m_device;
+
+	HRESULT result;
+	ID3D10Blob* errorMessage = 0;
+	ID3D10Blob* vertexShaderBuffer = 0;
+	ID3D10Blob* pixelShaderBuffer = 0;
+	D3D11_INPUT_ELEMENT_DESC polygonLayout[2];
+	unsigned int numElements;
+	D3D11_BUFFER_DESC matrixBufferDesc;
+
+	result = D3DCompileFromFile(vsFilename, NULL, NULL, "ColorVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
+		&vertexShaderBuffer, &errorMessage);
+
+	if (FAILED(result)) {
+		// If the shader failed to compile it should have writen something to the error message.
+		if (errorMessage) {
+			OutputShaderErrorMessage(errorMessage, hwnd, vsFilename);
+		}
+		// If there was  nothing in the error message then it simply could not find the shader file itself.
+		else {
+			MessageBox(hwnd, vsFilename, L"Missing vertex shader file", MB_OK);
+		}
+
+		return false;
+	}
+
+	// Compile the pixel shader code.
+	result = D3DCompileFromFile(psFilename, NULL, NULL, "ColorPixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
+		&pixelShaderBuffer, &errorMessage);
+	if (FAILED(result)) {
+		// If the shader failed to compile it should have writen something to the error message.
+		if (errorMessage) {
+			OutputShaderErrorMessage(errorMessage, hwnd, psFilename);
+		}
+		// If there was nothing in the error message then it simply could not find the file itself.
+		else {
+			MessageBox(hwnd, psFilename, L"Missing pixel shader file", MB_OK);
+		}
+
+		exit(1);
+	}
+
+	// Create the vertex shader from the buffer.
+	result = device->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, &m_vertexShader);
+	CHECK_RESULT(L"CreateVertexShader");
+
+	// Create the pixel shader from the buffer.
+	result = device->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, &m_pixelShader);
+	CHECK_RESULT(L"CreatePixelShader");
+
+	// Create the vertex input layout description.
+	// This setup needs to match the VertexType stucture in the ModelClass and in the shader.
+	polygonLayout[0].SemanticName = "POSITION";
+	polygonLayout[0].SemanticIndex = 0;
+	polygonLayout[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	polygonLayout[0].InputSlot = 0;
+	polygonLayout[0].AlignedByteOffset = 0;
+	polygonLayout[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	polygonLayout[0].InstanceDataStepRate = 0;
+
+	polygonLayout[1].SemanticName = "COLOR";
+	polygonLayout[1].SemanticIndex = 0;
+	polygonLayout[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	polygonLayout[1].InputSlot = 0;
+	polygonLayout[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+	polygonLayout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	polygonLayout[1].InstanceDataStepRate = 0;
+
+	// Get a count of the elements in the layout.
+	numElements = sizeof(polygonLayout) / sizeof(polygonLayout[0]);
+
+	// Create the vertex input layout.
+	result = device->CreateInputLayout(polygonLayout, numElements, vertexShaderBuffer->GetBufferPointer(),
+		vertexShaderBuffer->GetBufferSize(), &m_layout);
+	CHECK_RESULT(result);
+
+	// Release the vertex shader buffer and pixel shader buffer since they are no longer needed.
+	vertexShaderBuffer->Release();
+	vertexShaderBuffer = 0;
+
+	pixelShaderBuffer->Release();
+	pixelShaderBuffer = 0;
+
+	// Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
+	matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
+	matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	matrixBufferDesc.MiscFlags = 0;
+	matrixBufferDesc.StructureByteStride = 0;
+
+	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
+	result = device->CreateBuffer(&matrixBufferDesc, NULL, &m_matrixBuffer);
+	CHECK_RESULT(L"CreateBuffer");
+}
+
+void shader_unload()
+{
+	
+}
 
 

@@ -167,6 +167,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     }
 
+    renderer_shutdown();
+
     return 0;
 }
 
