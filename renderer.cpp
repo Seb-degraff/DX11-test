@@ -350,6 +350,7 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 		rasterDesc.DepthBiasClamp = 0.0f;
 		rasterDesc.DepthClipEnable = true;
 		rasterDesc.FillMode = D3D11_FILL_SOLID;
+		//rasterDesc.FillMode = D3D11_FILL_WIREFRAME;
 		rasterDesc.FrontCounterClockwise = false;
 		rasterDesc.MultisampleEnable = false;
 		rasterDesc.ScissorEnable = false;
@@ -450,7 +451,7 @@ void renderer_shutdown()
 }
 
 
-void renderer_frame_begin()
+void renderer_frame_begin(float cam_rot_y)
 {
 	static int frame_num = 0;
 	frame_num++;
@@ -501,7 +502,6 @@ void renderer_frame_begin()
 	//XMVECTOR lookAt = XMVectorSet(0.f, 0.f, 1.f, 0.f);
 	//XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	//m_viewMatrix = XMMatrixLookAtLH(pos, lookAt, up);
-
 	{
 		XMFLOAT3 up, position, lookAt;
 		XMVECTOR upVector, positionVector, lookAtVector;
@@ -518,9 +518,13 @@ void renderer_frame_begin()
 		upVector = XMLoadFloat3(&up);
 
 		// Setup the position of the camera in the world.
-		position.x = sinf(frame_num / 60.f) * 5.f;
+		/*position.x = sinf(frame_num / 60.f) * 5.f;
 		position.y = 0.f;
-		position.z = cosf(frame_num / 60.f) * -5.f;
+		position.z = cosf(frame_num / 60.f) * -5.f;*/
+
+		position.x = 0.f;
+		position.y = 0.f;
+		position.z = -5.f;
 
 		// Load it into a XMVECTOR structure.
 		positionVector = XMLoadFloat3(&position);
@@ -535,7 +539,7 @@ void renderer_frame_begin()
 
 		// Set the yaw (Y axis), pitch (X axis), and roll (Z axis) rotations in radians.
 		pitch = 0.f * 0.0174532925f;
-		yaw = 0.f * 0.0174532925f;
+		yaw = cam_rot_y * 0.0174532925f;
 		roll = 0.f * 0.0174532925f;
 
 		// Create the rotation matrix from the yaw, pitch, and roll values.

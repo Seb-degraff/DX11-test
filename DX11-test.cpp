@@ -4,7 +4,9 @@
 #include "framework.h"
 #include "utils.h"
 #include "DX11-test.h"
-#include "renderer.hpp";
+#include "renderer.hpp"
+#include "Windowsx.h" // required for GET_X_LPARAM (mouse related)
+#include "input.cpp" // NOTE(seb): Including the cpp directly here to simplify experimentation and reduce compile time during dev.
 
 #define MAX_LOADSTRING 100
 
@@ -24,8 +26,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpar
         case WM_CLOSE: {
             PostQuitMessage(0);
             return 0;
-        }
+        }        
     }
+
+    if (input_recieve_event(hwnd, umsg, wparam, lparam)) {
+        return 0;
+    }
+
     return DefWindowProc(hwnd, umsg, wparam, lparam);
 }
 
@@ -116,12 +123,6 @@ void initialize_window(int& screenWidth, int& screenHeight)
 }
 
 
-// Forward declarations of functions included in this code module:
-ATOM                MyRegisterClass(HINSTANCE hInstance);
-BOOL                InitInstance(HINSTANCE, int);
-LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -168,9 +169,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return 0;
 }
 
+static float cam_rot_y;
+
 void draw_frame()
 {
-    renderer_frame_begin();
+    input_tick();
+    cam_rot_y += get_mouse_delta().x * 0.1f;
+    LOG(L"cam_rot_y: %i", cam_rot_y);
+    renderer_frame_begin(cam_rot_y);
     renderer_frame_end();
     //log(L"Frame", 0);
 }
