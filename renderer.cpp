@@ -49,7 +49,7 @@ const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.3f;
 
-bool m_vsync_enabled;
+bool m_vsync_enabled = true;
 int m_videoCardMemory;
 char m_videoCardDescription[128];
 IDXGISwapChain* m_swapChain;
@@ -196,8 +196,7 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	// Set the refresh rate of the back buffer.
-	bool vsync_enabled = true;
-	if (vsync_enabled) {
+	if (m_vsync_enabled) {
 		swapChainDesc.BufferDesc.RefreshRate.Numerator = numerator;
 		swapChainDesc.BufferDesc.RefreshRate.Denominator = denominator;
 	}
@@ -345,7 +344,8 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 		
 		// Setup the raster description which will determine how and what polygons will be drawn.
 		rasterDesc.AntialiasedLineEnable = false;
-		rasterDesc.CullMode = D3D11_CULL_BACK;
+		//rasterDesc.CullMode = D3D11_CULL_BACK;
+		rasterDesc.CullMode = D3D11_CULL_NONE;
 		rasterDesc.DepthBias = 0;
 		rasterDesc.DepthBiasClamp = 0.0f;
 		rasterDesc.DepthClipEnable = true;
@@ -457,7 +457,7 @@ void renderer_frame_begin()
 	float color[4];
 
 	// Setup the color to clear the buffer to.
-	if (frame_num & 0x1000) {
+	if (frame_num & 0x0100) {
 		color[0] = 0.8f;
 		color[1] = 0.2f;
 		color[2] = 0.5f;
@@ -518,17 +518,17 @@ void renderer_frame_begin()
 		upVector = XMLoadFloat3(&up);
 
 		// Setup the position of the camera in the world.
-		position.x = 0.f;
+		position.x = sinf(frame_num / 60.f) * 5.f;
 		position.y = 0.f;
-		position.z = -5.0f;
+		position.z = cosf(frame_num / 60.f) * -5.f;
 
 		// Load it into a XMVECTOR structure.
 		positionVector = XMLoadFloat3(&position);
 
 		// Setup where the camera is looking by default.
-		lookAt.x = 0.0f;
-		lookAt.y = 0.0f;
-		lookAt.z = 1.0f;
+		lookAt.x = -position.x;
+		lookAt.y = -position.y;
+		lookAt.z = -position.z;
 
 		// Load it into a XMVECTOR structure.
 		lookAtVector = XMLoadFloat3(&lookAt);
@@ -796,13 +796,13 @@ void initialize_mesh_buffers()
 
 	// Load the vertex array with data.
 	vertices[0].position = XMFLOAT3(-1.0f, -1.0f, 0.0f);  // Bottom left.
-	vertices[0].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	vertices[0].color = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 
 	vertices[1].position = XMFLOAT3(0.0f, 1.0f, 0.0f);  // Top middle.
 	vertices[1].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
 
 	vertices[2].position = XMFLOAT3(1.0f, -1.0f, 0.0f);  // Bottom right.
-	vertices[2].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	vertices[2].color = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
 
 	// Load the index array with data.
 	indices[0] = 0;  // Bottom left.
