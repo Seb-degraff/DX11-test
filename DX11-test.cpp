@@ -170,13 +170,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 static float cam_rot_y;
+static vec3_t _player_pos;
+static vec3_t _player_rot;
 
 void draw_frame()
 {
     input_tick();
-    cam_rot_y += get_mouse_delta().x * 0.1f;
-    LOG(L"cam_rot_y: %i", cam_rot_y);
-    renderer_frame_begin(cam_rot_y);
+    _player_rot.y += get_mouse_delta().x * 0.1f;
+    _player_rot.x += get_mouse_delta().y * 0.1f;
+
+    Transforms cam_trans;
+    cam_trans.pos = _player_pos + vec3(0, 2, -5);
+    cam_trans.rot = _player_rot;
+
+    renderer_frame_begin(cam_trans);
     renderer_frame_end();
     //log(L"Frame", 0);
 }

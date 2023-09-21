@@ -16,7 +16,9 @@
 #include <directxmath.h>
 #include <D3dcompiler.h>
 
-using namespace DirectX;
+using namespace DirectX; // TODO(seb): remove this, let's be explicit as this is a lerning project
+
+#include "renderer.hpp"
 
 struct MatrixBufferType
 {
@@ -451,7 +453,7 @@ void renderer_shutdown()
 }
 
 
-void renderer_frame_begin(float cam_rot_y)
+void renderer_frame_begin(Transforms cam_transforms)
 {
 	static int frame_num = 0;
 	frame_num++;
@@ -522,25 +524,25 @@ void renderer_frame_begin(float cam_rot_y)
 		position.y = 0.f;
 		position.z = cosf(frame_num / 60.f) * -5.f;*/
 
-		position.x = 0.f;
-		position.y = 0.f;
-		position.z = -5.f;
+		position.x = cam_transforms.pos.x;
+		position.y = cam_transforms.pos.y;
+		position.z = cam_transforms.pos.z;
 
 		// Load it into a XMVECTOR structure.
 		positionVector = XMLoadFloat3(&position);
 
 		// Setup where the camera is looking by default.
-		lookAt.x = -position.x;
-		lookAt.y = -position.y;
-		lookAt.z = -position.z;
+		lookAt.x = 0;
+		lookAt.y = 0;
+		lookAt.z = 5.f;
 
 		// Load it into a XMVECTOR structure.
 		lookAtVector = XMLoadFloat3(&lookAt);
 
 		// Set the yaw (Y axis), pitch (X axis), and roll (Z axis) rotations in radians.
-		pitch = 0.f * 0.0174532925f;
-		yaw = cam_rot_y * 0.0174532925f;
-		roll = 0.f * 0.0174532925f;
+		pitch = cam_transforms.rot.x * 0.0174532925f;
+		yaw = cam_transforms.rot.y * 0.0174532925f;
+		roll = cam_transforms.rot.z * 0.0174532925f;
 
 		// Create the rotation matrix from the yaw, pitch, and roll values.
 		rotationMatrix = XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
@@ -778,6 +780,43 @@ void shader_set_parameters()
 	m_deviceContext->VSSetConstantBuffers(bufferNumber, 1, &m_matrixBuffer);
 }
 
+struct Geometry
+{
+	VertexType* vertices;
+	unsigned long* indices;
+	int vertices_cap;
+	int indices_cap;
+	int vertices_current;
+	int indices_current;
+};
+
+VertexType vertex(vec3_t pos, vec3_t col)
+{
+	VertexType ret;
+	ret.position = XMFLOAT3(pos.x, pos.y, pos.z);
+	ret.color = XMFLOAT4(col.x, col.y, col.z, 1);
+	return ret;
+}
+
+void generate_quad(Geometry* g, vec3_t pos)
+{
+	// TODO: optimize
+	g->vertices[g->vertices_current + 0] = vertex(vec3(0, 0, 0) + pos, vec3(1, 0, 0));
+	g->vertices[g->vertices_current + 1] = vertex(vec3(1, 0, 0) + pos, vec3(0, 1, 0));
+	g->vertices[g->vertices_current + 2] = vertex(vec3(1, 0, 1) + pos, vec3(0, 0, 1));
+	g->vertices[g->vertices_current + 3] = vertex(vec3(0, 0, 1) + pos, vec3(1, 1, 1));
+
+	g->indices[g->indices_current + 0] = g->vertices_current + 0;
+	g->indices[g->indices_current + 1] = g->vertices_current + 1;
+	g->indices[g->indices_current + 2] = g->vertices_current + 2;
+	g->indices[g->indices_current + 3] = g->vertices_current + 0;
+	g->indices[g->indices_current + 4] = g->vertices_current + 2;
+	g->indices[g->indices_current + 5] = g->vertices_current + 3;
+
+	g->vertices_current += 4;
+	g->indices_current += 6;
+}
+
 void initialize_mesh_buffers()
 {
 	VertexType* vertices;
@@ -787,31 +826,50 @@ void initialize_mesh_buffers()
 	HRESULT result;
 
 	// Set the number of vertices in the vertex array.
-	m_vertexCount = 3;
+	int vertexCap = 10000;
+	m_vertexCount = 4;
 
 	// Set the number of indices in the index array.
-	m_indexCount = 3;
+	int indexCap = 30000;
+	m_indexCount = 6;
 
 	// Create the vertex array.
-	vertices = new VertexType[m_vertexCount];
+	vertices = new VertexType[vertexCap];
 
 	// Create the index array.
-	indices = new unsigned long[m_indexCount];
+	indices = new unsigned long[indexCap];
+
+	Geometry geom = { 0 };
+	geom.indices = indices;
+	geom.vertices = vertices;
+	geom.indices_cap = indexCap;
+	geom.vertices_cap = vertexCap;
+	geom.indices_current = 0;
+	geom.vertices_current = 0;
 
 	// Load the vertex array with data.
-	vertices[0].position = XMFLOAT3(-1.0f, -1.0f, 0.0f);  // Bottom left.
-	vertices[0].color = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	for (int x = 0; x < 20; x++) {
+		for (int y = 0; y < 20; y++) {
+			generate_quad(&geom, vec3(x, 0, y));
+		}
+	}
 
-	vertices[1].position = XMFLOAT3(0.0f, 1.0f, 0.0f);  // Top middle.
-	vertices[1].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	m_vertexCount = geom.vertices_current;
+	m_indexCount = geom.indices_current;
 
-	vertices[2].position = XMFLOAT3(1.0f, -1.0f, 0.0f);  // Bottom right.
-	vertices[2].color = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
+	//vertices[0].position = XMFLOAT3(-1.0f, -1.0f, 0.0f);  // Bottom left.
+	//vertices[0].color = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+
+	//vertices[1].position = XMFLOAT3(0.0f, 1.0f, 0.0f);  // Top middle.
+	//vertices[1].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+
+	//vertices[2].position = XMFLOAT3(1.0f, -1.0f, 0.0f);  // Bottom right.
+	//vertices[2].color = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
 
 	// Load the index array with data.
-	indices[0] = 0;  // Bottom left.
-	indices[1] = 1;  // Top middle.
-	indices[2] = 2;  // Bottom right.
+	//indices[0] = 0;  // Bottom left.
+	//indices[1] = 1;  // Top middle.
+	//indices[2] = 2;  // Bottom right.
 
 	// Set up the description of the static vertex buffer.
 	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -844,7 +902,7 @@ void initialize_mesh_buffers()
 
 	// Create the index buffer.
 	CHECK(m_device->CreateBuffer(&indexBufferDesc, &indexData, &m_indexBuffer));
-	
+
 	// Release the arrays now that the vertex and index buffers have been created and loaded.
 	delete[] vertices;
 	vertices = 0;
