@@ -8,13 +8,9 @@
 
 #define MAX_LOADSTRING 100
 
-
-
 // Global Variables:
 HINSTANCE instance_handle;
 HWND window_handle;
-
-
 
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {

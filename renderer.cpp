@@ -10,14 +10,32 @@
 #include "framework.h"
 #include <minwindef.h>
 #include "utils.h"
+#include <fstream>
 
 #include <d3d11.h>
 #include <directxmath.h>
+#include <D3dcompiler.h>
+
 using namespace DirectX;
+
+struct MatrixBufferType
+{
+	XMMATRIX world;
+	XMMATRIX view;
+	XMMATRIX projection;
+};
+
 
 #define CHECK_RESULT(check_fail_message) \
 if (FAILED(result)) { \
 	LOG(L"[ERROR] %s failed!", check_fail_message); \
+	exit(1); \
+}
+
+#define CHECK(function_call) \
+if (FAILED(function_call)) { \
+	LOG(L"[ERROR] %s failed!", WIDE1(#function_call)); \
+	DebugBreak(); \
 	exit(1); \
 }
 
@@ -39,8 +57,13 @@ ID3D11DepthStencilView* m_depthStencilView;
 ID3D11RasterizerState* m_rasterState;
 XMMATRIX m_projectionMatrix;
 XMMATRIX m_worldMatrix;
+XMMATRIX m_viewMatrix;
 XMMATRIX m_orthoMatrix;
 D3D11_VIEWPORT m_viewport;
+
+bool shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename);
+void shader_unload();
+void shader_set_parameters();
 
 bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 {
@@ -346,11 +369,15 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	// Create an orthographic projection matrix for 2D rendering.
 	m_orthoMatrix = XMMatrixOrthographicLH((float)screen_width, (float)screen_height, SCREEN_NEAR, SCREEN_DEPTH);
 
+	shader_load(hwnd, (WCHAR*) L"color.vs", (WCHAR*) L"color.ps");
+
 	return true;
 }
 
 void renderer_shutdown()
 {
+	shader_unload();
+
 	// Before shutting down set to windowed mode or when you release the swap chain it will throw an exception.
 	if (m_swapChain) {
 		m_swapChain->SetFullscreenState(false, NULL);
@@ -425,6 +452,8 @@ void renderer_frame_begin()
 
 	// Clear the depth buffer.
 	m_deviceContext->ClearDepthStencilView(m_depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	shader_set_parameters();
 }
 
 void renderer_frame_end()
@@ -440,12 +469,47 @@ void renderer_frame_end()
 	}
 }
 
+void shader_output_error(ID3D10Blob* errorMessage, HWND hwnd, WCHAR* shaderFilename)
+{
+	char* compileErrors;
+	unsigned long long bufferSize, i;
+	std::ofstream fout;
+
+
+	// Get a pointer to the error message text buffer.
+	compileErrors = (char*)(errorMessage->GetBufferPointer());
+
+	// Get the length of the message.
+	bufferSize = errorMessage->GetBufferSize();
+
+	// Open a file to write the error message to.
+	fout.open("shader-error.txt");
+
+	// Write out the error message.
+	for (i = 0; i < bufferSize; i++)
+	{
+		fout << compileErrors[i];
+	}
+
+	// Close the file.
+	fout.close();
+
+	// Release the error message.
+	errorMessage->Release();
+	errorMessage = 0;
+
+	// Pop a message up on the screen to notify the user to check the text file for compile errors.
+	MessageBox(hwnd, L"Error compiling shader.  Check shader-error.txt for message.", shaderFilename, MB_OK);
+
+	exit(1);
+}
+
 ID3D11VertexShader* m_vertexShader;
 ID3D11PixelShader* m_pixelShader;
 ID3D11InputLayout* m_layout;
 ID3D11Buffer* m_matrixBuffer;
 
-void shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
+bool shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 {
 	ID3D11Device* device = m_device;
 
@@ -463,7 +527,7 @@ void shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 	if (FAILED(result)) {
 		// If the shader failed to compile it should have writen something to the error message.
 		if (errorMessage) {
-			OutputShaderErrorMessage(errorMessage, hwnd, vsFilename);
+			shader_output_error(errorMessage, hwnd, vsFilename);
 		}
 		// If there was  nothing in the error message then it simply could not find the shader file itself.
 		else {
@@ -479,7 +543,7 @@ void shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 	if (FAILED(result)) {
 		// If the shader failed to compile it should have writen something to the error message.
 		if (errorMessage) {
-			OutputShaderErrorMessage(errorMessage, hwnd, psFilename);
+			shader_output_error(errorMessage, hwnd, psFilename);
 		}
 		// If there was nothing in the error message then it simply could not find the file itself.
 		else {
@@ -545,7 +609,57 @@ void shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 
 void shader_unload()
 {
-	
+	// Release the matrix constant buffer.
+	if (m_matrixBuffer) {
+		m_matrixBuffer->Release();
+		m_matrixBuffer = 0;
+	}
+
+	// Release the layout.
+	if (m_layout) {
+		m_layout->Release();
+		m_layout = 0;
+	}
+
+	// Release the pixel shader.
+	if (m_pixelShader) {
+		m_pixelShader->Release();
+		m_pixelShader = 0;
+	}
+
+	// Release the vertex shader.
+	if (m_vertexShader) {
+		m_vertexShader->Release();
+		m_vertexShader = 0;
+	}
+}
+
+void shader_set_parameters()
+{
+	HRESULT result;
+	D3D11_MAPPED_SUBRESOURCE mappedResource;
+	MatrixBufferType* dataPtr;
+	unsigned int bufferNumber;
+
+	// Transpose the matrices to prepare them for the shader.
+	XMMATRIX worldMatrix = XMMatrixTranspose(m_worldMatrix);
+	XMMATRIX viewMatrix = XMMatrixTranspose(m_viewMatrix);
+	XMMATRIX projectionMatrix = XMMatrixTranspose(m_projectionMatrix);
+
+	// Lock the constant buffer so it can be written to.
+	CHECK(m_deviceContext->Map(m_matrixBuffer, 10, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource));
+
+	// Get a pointer to the data in the constant buffer.
+	dataPtr = (MatrixBufferType*) mappedResource.pData;
+
+	// Copy the matrices into the constant buffer.
+	dataPtr->world = worldMatrix;
+	dataPtr->view = viewMatrix;
+	dataPtr->projection = projectionMatrix;
+
+	// Unlock the constant buffer.
+	m_deviceContext->Unmap(m_matrixBuffer, 0);
+
 }
 
 
