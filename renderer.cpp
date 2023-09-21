@@ -25,6 +25,11 @@ struct MatrixBufferType
 	XMMATRIX projection;
 };
 
+struct VertexType
+{
+	XMFLOAT3 position;
+	XMFLOAT4 color;
+};
 
 #define CHECK_RESULT(check_fail_message) \
 if (FAILED(result)) { \
@@ -61,9 +66,21 @@ XMMATRIX m_viewMatrix;
 XMMATRIX m_orthoMatrix;
 D3D11_VIEWPORT m_viewport;
 
+// shader-related stuff
+ID3D11VertexShader* m_vertexShader;
+ID3D11PixelShader* m_pixelShader;
+ID3D11InputLayout* m_layout;
+ID3D11Buffer* m_matrixBuffer;
+
+// mesh related stuff
+ID3D11Buffer* m_vertexBuffer, * m_indexBuffer;
+int m_vertexCount, m_indexCount;
+
+
 bool shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename);
 void shader_unload();
 void shader_set_parameters();
+void initialize_mesh_buffers();
 
 bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 {
@@ -222,7 +239,11 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	featureLevel = D3D_FEATURE_LEVEL_11_0;
 
 	// Create the swap chain, Direct3D device, and Direct3D device context.
-	result = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, &featureLevel, 1,
+	UINT creationFlags = 0;
+	#if defined(_DEBUG)
+		creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
+	#endif
+	result = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, &featureLevel, 1,
 		D3D11_SDK_VERSION, &swapChainDesc, &m_swapChain, &m_device, NULL, &m_deviceContext);
 
 	CHECK_RESULT(L"D3D11CreateDeviceAndSwapChain");
@@ -371,6 +392,8 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 
 	shader_load(hwnd, (WCHAR*) L"color.vs", (WCHAR*) L"color.ps");
 
+	initialize_mesh_buffers();
+
 	return true;
 }
 
@@ -453,7 +476,96 @@ void renderer_frame_begin()
 	// Clear the depth buffer.
 	m_deviceContext->ClearDepthStencilView(m_depthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
+	// code called "RenderBuffers" in the tutorial, which actually binds the vertex/index buffers
+	{
+		unsigned int stride;
+		unsigned int offset;
+
+
+		// Set vertex buffer stride and offset.
+		stride = sizeof(VertexType);
+		offset = 0;
+
+		// Set the vertex buffer to active in the input assembler so it can be rendered.
+		m_deviceContext->IASetVertexBuffers(0, 1, &m_vertexBuffer, &stride, &offset);
+
+		// Set the index buffer to active in the input assembler so it can be rendered.
+		m_deviceContext->IASetIndexBuffer(m_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+		// Set the type of primitive that should be rendered from this vertex buffer, in this case triangles.
+		m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
+
+	// set view matrix
+	//XMVECTOR pos = XMVectorSet(0.f, 0.f, 0.f, 0.f);
+	//XMVECTOR lookAt = XMVectorSet(0.f, 0.f, 1.f, 0.f);
+	//XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
+	//m_viewMatrix = XMMatrixLookAtLH(pos, lookAt, up);
+
+	{
+		XMFLOAT3 up, position, lookAt;
+		XMVECTOR upVector, positionVector, lookAtVector;
+		float yaw, pitch, roll;
+		XMMATRIX rotationMatrix;
+
+
+		// Setup the vector that points upwards.
+		up.x = 0.0f;
+		up.y = 1.0f;
+		up.z = 0.0f;
+
+		// Load it into a XMVECTOR structure.
+		upVector = XMLoadFloat3(&up);
+
+		// Setup the position of the camera in the world.
+		position.x = 0.f;
+		position.y = 0.f;
+		position.z = -5.0f;
+
+		// Load it into a XMVECTOR structure.
+		positionVector = XMLoadFloat3(&position);
+
+		// Setup where the camera is looking by default.
+		lookAt.x = 0.0f;
+		lookAt.y = 0.0f;
+		lookAt.z = 1.0f;
+
+		// Load it into a XMVECTOR structure.
+		lookAtVector = XMLoadFloat3(&lookAt);
+
+		// Set the yaw (Y axis), pitch (X axis), and roll (Z axis) rotations in radians.
+		pitch = 0.f * 0.0174532925f;
+		yaw = 0.f * 0.0174532925f;
+		roll = 0.f * 0.0174532925f;
+
+		// Create the rotation matrix from the yaw, pitch, and roll values.
+		rotationMatrix = XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
+
+		// Transform the lookAt and up vector by the rotation matrix so the view is correctly rotated at the origin.
+		lookAtVector = XMVector3TransformCoord(lookAtVector, rotationMatrix);
+		upVector = XMVector3TransformCoord(upVector, rotationMatrix);
+
+		// Translate the rotated camera position to the location of the viewer.
+		lookAtVector = XMVectorAdd(positionVector, lookAtVector);
+
+		// Finally create the view matrix from the three updated vectors.
+		m_viewMatrix = XMMatrixLookAtLH(positionVector, lookAtVector, upVector);	
+	}
+
 	shader_set_parameters();
+
+	// shader draw
+	{
+		// Set the vertex input layout.
+		m_deviceContext->IASetInputLayout(m_layout);
+
+		// Set the vertex and pixel shaders that will be used to render this triangle.
+		m_deviceContext->VSSetShader(m_vertexShader, NULL, 0);
+		m_deviceContext->PSSetShader(m_pixelShader, NULL, 0);
+
+		// Render the triangle.
+		m_deviceContext->DrawIndexed(m_indexCount, 0, 0);
+	}
 }
 
 void renderer_frame_end()
@@ -503,11 +615,6 @@ void shader_output_error(ID3D10Blob* errorMessage, HWND hwnd, WCHAR* shaderFilen
 
 	exit(1);
 }
-
-ID3D11VertexShader* m_vertexShader;
-ID3D11PixelShader* m_pixelShader;
-ID3D11InputLayout* m_layout;
-ID3D11Buffer* m_matrixBuffer;
 
 bool shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 {
@@ -647,7 +754,7 @@ void shader_set_parameters()
 	XMMATRIX projectionMatrix = XMMatrixTranspose(m_projectionMatrix);
 
 	// Lock the constant buffer so it can be written to.
-	CHECK(m_deviceContext->Map(m_matrixBuffer, 10, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource));
+	CHECK(m_deviceContext->Map(m_matrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource));
 
 	// Get a pointer to the data in the constant buffer.
 	dataPtr = (MatrixBufferType*) mappedResource.pData;
@@ -660,6 +767,84 @@ void shader_set_parameters()
 	// Unlock the constant buffer.
 	m_deviceContext->Unmap(m_matrixBuffer, 0);
 
+	// Set the position of the constant buffer in the vertex shader.
+	bufferNumber = 0;
+
+	// Finaly set the constant buffer in the vertex shader with the updated values.
+	m_deviceContext->VSSetConstantBuffers(bufferNumber, 1, &m_matrixBuffer);
 }
 
+void initialize_mesh_buffers()
+{
+	VertexType* vertices;
+	unsigned long* indices;
+	D3D11_BUFFER_DESC vertexBufferDesc, indexBufferDesc;
+	D3D11_SUBRESOURCE_DATA vertexData, indexData;
+	HRESULT result;
 
+	// Set the number of vertices in the vertex array.
+	m_vertexCount = 3;
+
+	// Set the number of indices in the index array.
+	m_indexCount = 3;
+
+	// Create the vertex array.
+	vertices = new VertexType[m_vertexCount];
+
+	// Create the index array.
+	indices = new unsigned long[m_indexCount];
+
+	// Load the vertex array with data.
+	vertices[0].position = XMFLOAT3(-1.0f, -1.0f, 0.0f);  // Bottom left.
+	vertices[0].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+
+	vertices[1].position = XMFLOAT3(0.0f, 1.0f, 0.0f);  // Top middle.
+	vertices[1].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+
+	vertices[2].position = XMFLOAT3(1.0f, -1.0f, 0.0f);  // Bottom right.
+	vertices[2].color = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+
+	// Load the index array with data.
+	indices[0] = 0;  // Bottom left.
+	indices[1] = 1;  // Top middle.
+	indices[2] = 2;  // Bottom right.
+
+	// Set up the description of the static vertex buffer.
+	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	vertexBufferDesc.ByteWidth = sizeof(VertexType) * m_vertexCount;
+	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vertexBufferDesc.CPUAccessFlags = 0;
+	vertexBufferDesc.MiscFlags = 0;
+	vertexBufferDesc.StructureByteStride = 0;
+
+	// Give the subresource structure a pointer to the vertex data.
+	vertexData.pSysMem = vertices;
+	vertexData.SysMemPitch = 0;
+	vertexData.SysMemSlicePitch = 0;
+
+	// Now create the vertex buffer.
+	CHECK(m_device->CreateBuffer(&vertexBufferDesc, &vertexData, &m_vertexBuffer));
+
+	// Set up the description of the static index buffer.
+	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	indexBufferDesc.ByteWidth = sizeof(unsigned long) * m_indexCount;
+	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	indexBufferDesc.CPUAccessFlags = 0;
+	indexBufferDesc.MiscFlags = 0;
+	indexBufferDesc.StructureByteStride = 0;
+
+	// Give the subresource structure a pointer to the index data.
+	indexData.pSysMem = indices;
+	indexData.SysMemPitch = 0;
+	indexData.SysMemSlicePitch = 0;
+
+	// Create the index buffer.
+	CHECK(m_device->CreateBuffer(&indexBufferDesc, &indexData, &m_indexBuffer));
+	
+	// Release the arrays now that the vertex and index buffers have been created and loaded.
+	delete[] vertices;
+	vertices = 0;
+
+	delete[] indices;
+	indices = 0;
+}
