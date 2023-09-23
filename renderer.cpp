@@ -798,13 +798,13 @@ VertexType vertex(vec3_t pos, vec3_t col)
 	return ret;
 }
 
-void generate_quad(Geometry* g, vec3_t pos)
+void generate_quad(Geometry* g, vec3_t pos_a, vec3_t pos_b, vec3_t pos_c, vec3_t pos_d, vec3_t color)
 {
 	// TODO: optimize
-	g->vertices[g->vertices_current + 0] = vertex(vec3(0, 0, 0) + pos, vec3(1, 0, 0));
-	g->vertices[g->vertices_current + 1] = vertex(vec3(1, 0, 0) + pos, vec3(0, 1, 0));
-	g->vertices[g->vertices_current + 2] = vertex(vec3(1, 0, 1) + pos, vec3(0, 0, 1));
-	g->vertices[g->vertices_current + 3] = vertex(vec3(0, 0, 1) + pos, vec3(1, 1, 1));
+	g->vertices[g->vertices_current + 0] = vertex(pos_a, color);
+	g->vertices[g->vertices_current + 1] = vertex(pos_b, color);
+	g->vertices[g->vertices_current + 2] = vertex(pos_c, color);
+	g->vertices[g->vertices_current + 3] = vertex(pos_d, color);
 
 	g->indices[g->indices_current + 0] = g->vertices_current + 0;
 	g->indices[g->indices_current + 1] = g->vertices_current + 1;
@@ -816,6 +816,20 @@ void generate_quad(Geometry* g, vec3_t pos)
 	g->vertices_current += 4;
 	g->indices_current += 6;
 }
+
+void generate_floor(Geometry* g, vec3_t pos)
+{
+	vec3_t color = vec3(0.6f, 0.5f, 0.3f);
+	generate_quad(g, vec3(0, 0, 0) + pos, vec3(1, 0, 0) + pos, vec3(1, 0, 1) + pos, vec3(0, 0, 1) + pos, color);
+}
+
+void generate_wall(Geometry* g, vec2_t start_pos, vec2_t end_pos)
+{
+	vec3_t color = vec3(0.2f, 0.2f, 0.3f);
+	generate_quad(g, vec3(start_pos.x, 0, start_pos.y), vec3(start_pos.x, 1.2, start_pos.y), vec3(end_pos.x, 1.2, end_pos.y), vec3(end_pos.x, 0, end_pos.y), color);
+}
+
+bool is_wall(int x, int y);
 
 void initialize_mesh_buffers()
 {
@@ -848,9 +862,27 @@ void initialize_mesh_buffers()
 	geom.vertices_current = 0;
 
 	// Load the vertex array with data.
-	for (int x = 0; x < 20; x++) {
-		for (int y = 0; y < 20; y++) {
-			generate_quad(&geom, vec3(x, 0, y));
+	for (int x = 0; x < 16; ++x) {
+		for (int y = 0; y < 16; ++y) {
+			if (!is_wall(x, y)) {
+				// generate floor
+				generate_floor(&geom, vec3(x, 0, y));
+
+				// generate walls
+				if (is_wall(x + 1, y)) {
+					generate_wall(&geom, vec2(x + 1, y), vec2(x + 1, y + 1));
+				}
+				if (is_wall(x - 1, y)) {
+					generate_wall(&geom, vec2(x, y), vec2(x, y + 1));
+				}
+				if (is_wall(x, y + 1)) {
+					generate_wall(&geom, vec2(x, y + 1), vec2(x + 1, y + 1));
+				}
+				if (is_wall(x, y - 1)) {
+					generate_wall(&geom, vec2(x, y), vec2(x + 1, y));
+				}
+
+			}
 		}
 	}
 

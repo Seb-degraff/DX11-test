@@ -7,6 +7,7 @@
 #include "renderer.hpp"
 #include "Windowsx.h" // required for GET_X_LPARAM (mouse related)
 #include "input.cpp" // NOTE(seb): Including the cpp directly here to simplify experimentation and reduce compile time during dev.
+#include <math.h>
 
 #define MAX_LOADSTRING 100
 
@@ -117,11 +118,15 @@ void initialize_window(int& screenWidth, int& screenHeight)
     SetFocus(window_handle);
 
     // Hide the mouse cursor.
-    //ShowCursor(false);
+    ShowCursor(true);
+    //SetCapture(window_handle);
 
     return;
 }
 
+static float cam_rot_y;
+static vec3_t _player_pos;
+static vec3_t _player_rot;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -148,6 +153,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
     ZeroMemory(&msg, sizeof(MSG));
 
+    _player_pos.x = 7.5f;
+    _player_pos.z = 0.5f;
+
     // Loop until there is a quit message from the window or the user.
     while (1) {
         // Handle the windows messages.
@@ -169,19 +177,79 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return 0;
 }
 
-static float cam_rot_y;
-static vec3_t _player_pos;
-static vec3_t _player_rot;
+#define __M_PI   3.14159265358979323846264338327950288
+#define degToRad(angleInDegrees) ((angleInDegrees) * __M_PI / 180.0)
+#define radToDeg(angleInRadians) ((angleInRadians) * 180.0 / __M_PI)
+
+//static unsigned char cells[16 * 16 * 64];
+
+static unsigned char cells[16 * 16 + 1] = {
+    "xxxxxxx xxxxxxxx"
+    "x              x"
+    "x x xxxxxxxxxx x"
+    "x x x        x x"
+    "x x x xxxxxx x x"
+    "x x x    x   x x"
+    "x x xxxx x xxx x"
+    "x x      x x x x"
+    "x xxx xxxx x x x"
+    "x xxx xxxx   x x"
+    "x x      xxx x x"
+    "x x    xxxxx x x"
+    "x x    x     x x"
+    "x xxxxxx xxxxx x"
+    "x              x"
+    "xxxxxxxx xxxxxxx"
+};
+
+bool is_wall(int x, int y)
+{
+    if (x < 0 || x >= 16) {
+        return true;
+    }
+    if (y < 0 || y >= 16) {
+        return true;
+    }
+    return cells[x + y * 16] != ' ';
+}
 
 void draw_frame()
 {
     input_tick();
-    _player_rot.y += get_mouse_delta().x * 0.1f;
-    _player_rot.x += get_mouse_delta().y * 0.1f;
+    _player_rot.y += get_mouse_delta().x * 0.4f;
+    _player_rot.x += get_mouse_delta().y * 0.4f;
+    if (_player_rot.x > 45.f) _player_rot.x = 45.f;
+    if (_player_rot.x < -45.f) _player_rot.x = -45.f;
+
+    Vec2i wasd = get_wasd();
+    vec2_t movement = vec2(0.02f * wasd.x, 0.02f * wasd.y);
+    // TODO: normalize movement before multiplication, so diagonal movement isn't faster.
+
+    vec3_t old_pos = _player_pos;
+
+    _player_pos.x += movement.x * cosf(degToRad(_player_rot.y)) + movement.y * sinf(degToRad(_player_rot.y));
+    _player_pos.z += movement.y * cosf(degToRad(_player_rot.y)) + movement.x * -sinf(degToRad(_player_rot.y));
+    
+    Vec2i cell_coord;
+    cell_coord.x = floorf(_player_pos.x);
+    cell_coord.y = floorf(_player_pos.z);
+    /*
+    float min_x = is_wall(cell_coord.x - 1, cell_coord.y) ? cell_coord.x : -100000;
+    float max_x = is_wall(cell_coord.x + 1, cell_coord.y) ? cell_coord.x + 1 : +100000;
+    
+    _player_pos.x = max(min_x, _player_pos.x);*/
+    //_player_pos.x = min(max_x, _player_pos.x);
+
+    if (is_wall(cell_coord.x, cell_coord.y)) {
+        _player_pos = old_pos;
+    }
+
 
     Transforms cam_trans;
-    cam_trans.pos = _player_pos + vec3(0, 2, -5);
+    cam_trans.pos = _player_pos + vec3(0, 0.7f, 0);
     cam_trans.rot = _player_rot;
+
+    LOG(L"_player_pos (%f, %f)", _player_pos.x, _player_pos.z);
 
     renderer_frame_begin(cam_trans);
     renderer_frame_end();

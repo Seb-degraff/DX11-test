@@ -11,7 +11,7 @@ void log_impl(const wchar_t* file, int line, LPCWSTR format, ...)
     va_list arg;
     va_start(arg, line);
     _vsnwprintf_s(buffer, sizeof(buffer), format, arg);
-    _snwprintf_s(buffer2, sizeof(buffer2), L"%s %s(%i)\n", buffer, file, line);
+    _snwprintf_s(buffer2, sizeof(buffer2), L"%s(%i) %s\n", file, line, buffer);
     va_end(arg);
 
     OutputDebugString(buffer2);

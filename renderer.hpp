@@ -1,5 +1,29 @@
 #pragma once
 
+
+struct vec2_t vec2(float x, float y);
+
+struct vec2_t
+{
+	float x;
+	float y;
+
+	inline vec2_t operator+(const vec2_t& other)
+	{
+		return vec2(x + other.x, y + other.y);
+	}
+};
+
+inline vec2_t vec2(float x, float y)
+{
+	vec2_t vec;
+
+	vec.x = x;
+	vec.y = y;
+
+	return vec;
+}
+
 struct vec3_t vec3(float x, float y, float z);
 
 struct vec3_t
