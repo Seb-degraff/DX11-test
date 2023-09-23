@@ -6,7 +6,6 @@
 #include "DX11-test.h"
 #include "renderer.hpp"
 #include "Windowsx.h" // required for GET_X_LPARAM (mouse related)
-#include "input.cpp" // NOTE(seb): Including the cpp directly here to simplify experimentation and reduce compile time during dev.
 #include <math.h>
 
 #define MAX_LOADSTRING 100
@@ -14,6 +13,8 @@
 // Global Variables:
 HINSTANCE instance_handle;
 HWND window_handle;
+
+#include "input.cpp" // NOTE(seb): Including the cpp directly here to simplify experimentation and reduce compile time during dev.
 
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
@@ -118,7 +119,7 @@ void initialize_window(int& screenWidth, int& screenHeight)
     SetFocus(window_handle);
 
     // Hide the mouse cursor.
-    ShowCursor(true);
+    //ShowCursor(false);
     //SetCapture(window_handle);
 
     return;
@@ -194,7 +195,7 @@ static unsigned char cells[16 * 16 + 1] = {
     "x x      x x x x"
     "x xxx xxxx x x x"
     "x xxx xxxx   x x"
-    "x x      xxx x x"
+    "x x    xxxxx x x"
     "x x    xxxxx x x"
     "x x    x     x x"
     "x xxxxxx xxxxx x"
@@ -251,12 +252,11 @@ void draw_frame()
         _player_pos = old_pos;
     }*/
 
-
     Transforms cam_trans;
     cam_trans.pos = _player_pos + vec3(0, 0.7f, 0);
     cam_trans.rot = _player_rot;
 
-    LOG(L"_player_pos (%f, %f)", _player_pos.x, _player_pos.z);
+    //LOG(L"_player_pos (%f, %f)", _player_pos.x, _player_pos.z);
 
     renderer_frame_begin(cam_trans);
     renderer_frame_end();
