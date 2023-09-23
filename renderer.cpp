@@ -15,6 +15,8 @@
 #include <d3d11.h>
 #include <directxmath.h>
 #include <D3dcompiler.h>
+//#include <dxgidebug.h> // for IDXGIDebug
+//#include <dxgi1_3.h> // for DXGIGetDebugInterface1
 
 using namespace DirectX; // TODO(seb): remove this, let's be explicit as this is a lerning project
 
@@ -122,7 +124,7 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	CHECK_RESULT(L"adapterOutput->GetDisplayModeList");
 
 	// Create a list to hold all the possible display modes for this monitor/video card combination.
-	displayModeList = new DXGI_MODE_DESC[numModes]; // NOTE(seb): any good reason to allocate on the heap?
+	displayModeList = new DXGI_MODE_DESC[numModes]; // NOTE(seb): any good reason to allocate on the heap? Update: I guess dynamic size is a problem (VLA are not always well supported)
 
 	// Now fill the display mode list structures.
 	result = adapterOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &numModes, displayModeList);
@@ -246,8 +248,15 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	#endif
 	result = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, creationFlags, &featureLevel, 1,
 		D3D11_SDK_VERSION, &swapChainDesc, &m_swapChain, &m_device, NULL, &m_deviceContext);
-
 	CHECK_RESULT(L"D3D11CreateDeviceAndSwapChain");
+
+	#if false
+		IDXGIDebug* debugDev;
+		result = DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debugDev));
+		CHECK_RESULT(L"DXGIGetDebugInterface1");
+
+		debugDev->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+	#endif
 
 	// Get the pointer to the back buffer.
 	result = m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&backBufferPtr);
@@ -448,6 +457,8 @@ void renderer_shutdown()
 		m_swapChain->Release();
 		m_swapChain = 0;
 	}
+
+	shader_unload();
 
 	return;
 }
@@ -817,15 +828,13 @@ void generate_quad(Geometry* g, vec3_t pos_a, vec3_t pos_b, vec3_t pos_c, vec3_t
 	g->indices_current += 6;
 }
 
-void generate_floor(Geometry* g, vec3_t pos)
+void generate_floor(Geometry* g, vec3_t pos, vec3_t color)
 {
-	vec3_t color = vec3(0.6f, 0.5f, 0.3f);
 	generate_quad(g, vec3(0, 0, 0) + pos, vec3(1, 0, 0) + pos, vec3(1, 0, 1) + pos, vec3(0, 0, 1) + pos, color);
 }
 
-void generate_wall(Geometry* g, vec2_t start_pos, vec2_t end_pos)
+void generate_wall(Geometry* g, vec2_t start_pos, vec2_t end_pos, vec3_t color)
 {
-	vec3_t color = vec3(0.2f, 0.2f, 0.3f);
 	generate_quad(g, vec3(start_pos.x, 0, start_pos.y), vec3(start_pos.x, 1.2, start_pos.y), vec3(end_pos.x, 1.2, end_pos.y), vec3(end_pos.x, 0, end_pos.y), color);
 }
 
@@ -866,20 +875,25 @@ void initialize_mesh_buffers()
 		for (int y = 0; y < 16; ++y) {
 			if (!is_wall(x, y)) {
 				// generate floor
-				generate_floor(&geom, vec3(x, 0, y));
+				vec3_t floor_color = vec3(0.6f, 0.5f, 0.3f);
+				vec3_t floor_color_dark = vec3(0.55f, 0.46f, 0.28f);
+				generate_floor(&geom, vec3(x, 0, y), ((x & 0x1) != (y & 0x1)) ? floor_color : floor_color_dark);
 
 				// generate walls
+				vec3_t dark_color = vec3(0.2f, 0.2f, 0.3f);
+				vec3_t light_color = vec3(0.3f, 0.3f, 0.45f);
 				if (is_wall(x + 1, y)) {
-					generate_wall(&geom, vec2(x + 1, y), vec2(x + 1, y + 1));
+					generate_wall(&geom, vec2(x + 1, y), vec2(x + 1, y + 1), dark_color);
 				}
 				if (is_wall(x - 1, y)) {
-					generate_wall(&geom, vec2(x, y), vec2(x, y + 1));
+					vec3_t color = vec3(0.2f, 0.2f, 0.3f);
+					generate_wall(&geom, vec2(x, y), vec2(x, y + 1), dark_color);
 				}
 				if (is_wall(x, y + 1)) {
-					generate_wall(&geom, vec2(x, y + 1), vec2(x + 1, y + 1));
+					generate_wall(&geom, vec2(x, y + 1), vec2(x + 1, y + 1), light_color);
 				}
 				if (is_wall(x, y - 1)) {
-					generate_wall(&geom, vec2(x, y), vec2(x + 1, y));
+					generate_wall(&geom, vec2(x, y), vec2(x + 1, y), light_color);
 				}
 
 			}
