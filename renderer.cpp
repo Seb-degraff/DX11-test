@@ -49,7 +49,7 @@ if (FAILED(function_call)) { \
 const bool FULL_SCREEN = false;
 const bool VSYNC_ENABLED = true;
 const float SCREEN_DEPTH = 1000.0f;
-const float SCREEN_NEAR = 0.3f;
+const float SCREEN_NEAR = 0.02f;
 
 bool m_vsync_enabled = true;
 int m_videoCardMemory;

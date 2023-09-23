@@ -226,23 +226,30 @@ void draw_frame()
     // TODO: normalize movement before multiplication, so diagonal movement isn't faster.
 
     vec3_t old_pos = _player_pos;
+  
+    Vec2i cell_coord;
+    cell_coord.x = floorf(_player_pos.x);
+    cell_coord.y = floorf(_player_pos.z);
+    
+    float thick = 0.1f;
+    float min_x = is_wall(cell_coord.x - 1, cell_coord.y) ? cell_coord.x + thick : -100000;
+    float max_x = is_wall(cell_coord.x + 1, cell_coord.y) ? cell_coord.x + 1 - thick : +100000;
+    float min_y = is_wall(cell_coord.x, cell_coord.y - 1) ? cell_coord.y + thick : -100000;
+    float max_y = is_wall(cell_coord.x, cell_coord.y + 1) ? cell_coord.y + 1 - thick : +100000;
+    //LOG(L"min_x: %f", min_x);
 
     _player_pos.x += movement.x * cosf(degToRad(_player_rot.y)) + movement.y * sinf(degToRad(_player_rot.y));
     _player_pos.z += movement.y * cosf(degToRad(_player_rot.y)) + movement.x * -sinf(degToRad(_player_rot.y));
     
-    Vec2i cell_coord;
-    cell_coord.x = floorf(_player_pos.x);
-    cell_coord.y = floorf(_player_pos.z);
-    /*
-    float min_x = is_wall(cell_coord.x - 1, cell_coord.y) ? cell_coord.x : -100000;
-    float max_x = is_wall(cell_coord.x + 1, cell_coord.y) ? cell_coord.x + 1 : +100000;
-    
-    _player_pos.x = max(min_x, _player_pos.x);*/
-    //_player_pos.x = min(max_x, _player_pos.x);
+    _player_pos.x = max(min_x, _player_pos.x);
+    _player_pos.x = min(max_x, _player_pos.x);
 
-    if (is_wall(cell_coord.x, cell_coord.y)) {
+    _player_pos.z = max(min_y, _player_pos.z);
+    _player_pos.z = min(max_y, _player_pos.z);
+
+    /*if (is_wall(cell_coord.x, cell_coord.y)) {
         _player_pos = old_pos;
-    }
+    }*/
 
 
     Transforms cam_trans;
