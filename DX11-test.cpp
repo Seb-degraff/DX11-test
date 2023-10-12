@@ -223,7 +223,7 @@ void draw_frame()
     if (_player_rot.x < -45.f) _player_rot.x = -45.f;
 
     Vec2i wasd = get_wasd();
-    vec2_t movement = vec2(0.02f * wasd.x, 0.02f * wasd.y);
+    vec2_t movement = vec2(0.03f * wasd.x, 0.03f * wasd.y);
     // TODO: normalize movement before multiplication, so diagonal movement isn't faster.
 
     vec3_t old_pos = _player_pos;
