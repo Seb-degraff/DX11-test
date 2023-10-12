@@ -36,7 +36,7 @@ add_executable(${PROJECT_NAME} WIN32
     Main.cpp
     StepTimer.h
     pch.h
-)
+ "shader.h")
 
 if(NOT MINGW)
     target_precompile_headers(${PROJECT_NAME} PRIVATE pch.h)
@@ -47,6 +47,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     kernel32.lib user32.lib
     comdlg32.lib advapi32.lib shell32.lib
     ole32.lib oleaut32.lib
+    D3DCompiler.lib
 )
 
 if(MSVC)

@@ -4,6 +4,7 @@
 
 #include "pch.h"
 #include "Game.h"
+#include "shader.h"
 
 extern void ExitGame() noexcept;
 
@@ -216,6 +217,7 @@ void Game::CreateDevice()
     DX::ThrowIfFailed(context.As(&m_d3dContext));
 
     // TODO: Initialize device dependent objects here (independent of window size).
+    shader_load(m_window, m_d3dDevice.Get(), (WCHAR*)L"../../../../../color.vs", (WCHAR*)L"../../../../../color.ps");
 }
 
 // Allocate all memory resources that change on a window SizeChanged event.
