@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdint.h>
 
 static int last_mouse_pos_x;
 static int last_mouse_pos_y;
@@ -24,7 +25,7 @@ static void lock_cursor()
     POINT pos;
     BOOL res = GetCursorPos(&pos);
     assert(res);
-    (void*)res;
+    (void)res;
     LONG locked_x = pos.x;
     LONG locked_y = pos.y;
 
@@ -143,8 +144,8 @@ struct Vec2i {
 Vec2i get_mouse_delta()
 {
     Vec2i ret;
-    ret.x = mouse_delta_x;
-    ret.y = mouse_delta_y;
+    ret.x = (int) mouse_delta_x;
+    ret.y = (int) mouse_delta_y;
     return ret;
 }
 

@@ -229,8 +229,8 @@ void draw_frame()
     vec3_t old_pos = _player_pos;
   
     Vec2i cell_coord;
-    cell_coord.x = floorf(_player_pos.x);
-    cell_coord.y = floorf(_player_pos.z);
+    cell_coord.x = (int) floorf(_player_pos.x);
+    cell_coord.y = (int) floorf(_player_pos.z);
     
     float thick = 0.1f;
     float min_x = is_wall(cell_coord.x - 1, cell_coord.y) ? cell_coord.x + thick : -100000;
@@ -239,8 +239,8 @@ void draw_frame()
     float max_y = is_wall(cell_coord.x, cell_coord.y + 1) ? cell_coord.y + 1 - thick : +100000;
     //LOG(L"min_x: %f", min_x);
 
-    _player_pos.x += movement.x * cosf(degToRad(_player_rot.y)) + movement.y * sinf(degToRad(_player_rot.y));
-    _player_pos.z += movement.y * cosf(degToRad(_player_rot.y)) + movement.x * -sinf(degToRad(_player_rot.y));
+    _player_pos.x += movement.x * cosf((float) degToRad(_player_rot.y)) + movement.y * sinf((float) degToRad(_player_rot.y));
+    _player_pos.z += movement.y * cosf((float) degToRad(_player_rot.y)) + movement.x * -sinf((float) degToRad(_player_rot.y));
     
     _player_pos.x = max(min_x, _player_pos.x);
     _player_pos.x = min(max_x, _player_pos.x);

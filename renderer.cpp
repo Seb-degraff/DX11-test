@@ -6,6 +6,7 @@
 //            to add them to Project -> Properties -> Linker -> Input -> 'Additional Dependencies'.
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "D3DCompiler.lib")
 
 #include "framework.h"
 #include <minwindef.h>
