@@ -7,6 +7,7 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "D3DCompiler.lib")
+#pragma comment(lib, "Dxgidebug.dll")
 
 #include "framework.h"
 #include <minwindef.h>
@@ -16,8 +17,8 @@
 #include <d3d11.h>
 #include <directxmath.h>
 #include <D3dcompiler.h>
-//#include <dxgidebug.h> // for IDXGIDebug
-//#include <dxgi1_3.h> // for DXGIGetDebugInterface1
+#include <dxgidebug.h> // for IDXGIDebug
+#include <dxgi1_3.h> // for DXGIGetDebugInterface1
 
 using namespace DirectX; // TODO(seb): remove this, let's be explicit as this is a lerning project
 
@@ -251,7 +252,7 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 		D3D11_SDK_VERSION, &swapChainDesc, &m_swapChain, &m_device, NULL, &m_deviceContext);
 	CHECK_RESULT(L"D3D11CreateDeviceAndSwapChain");
 
-	#if false
+	#if true
 		IDXGIDebug* debugDev;
 		result = DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debugDev));
 		CHECK_RESULT(L"DXGIGetDebugInterface1");
@@ -412,6 +413,7 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 
 void renderer_shutdown()
 {
+	LOG(L"Shutting down renderer.");
 	shader_unload();
 
 	// Before shutting down set to windowed mode or when you release the swap chain it will throw an exception.
@@ -460,6 +462,8 @@ void renderer_shutdown()
 	}
 
 	shader_unload();
+
+
 
 	return;
 }

@@ -158,19 +158,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _player_pos.z = 0.5f;
 
     // Loop until there is a quit message from the window or the user.
-    while (1) {
+    bool quit = false;
+    while (!quit) {
         // Handle the windows messages.
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
+            if (msg.message == WM_QUIT) {
+                quit = true;
+            }
             DispatchMessage(&msg);
         }
-        if (msg.message == WM_QUIT) {
-            break;
-        }
-        else {
-            draw_frame();
-        }
-
+        
+        draw_frame();
     }
 
     renderer_shutdown();

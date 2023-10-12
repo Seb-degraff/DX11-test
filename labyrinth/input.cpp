@@ -73,7 +73,7 @@ static bool input_recieve_event (HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpa
         case WM_KEYDOWN: {
             if (wparam >= 0 && wparam < KEY_COUNT) {
                 if (wparam == VK_ESCAPE) {
-                    exit(0);
+                    PostQuitMessage(0);
                 }
                 keys[wparam] = true;
                 return true;
@@ -115,9 +115,9 @@ static bool input_recieve_event (HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpa
 void input_tick()
 {
     if (last_mouse_pos_x != 0 && last_mouse_pos_y != 0) {
-        mouse_delta_x = mouse_pos_x - last_mouse_pos_x;
-        mouse_delta_y = mouse_pos_y - last_mouse_pos_y;
-        LOG(L"(%i - %i = %f; %f)", mouse_pos_x, last_mouse_pos_x, mouse_delta_x, mouse_delta_y);
+        mouse_delta_x = (float) mouse_pos_x - last_mouse_pos_x;
+        mouse_delta_y = (float) mouse_pos_y - last_mouse_pos_y;
+        //LOG(L"(%i - %i = %f; %f)", mouse_pos_x, last_mouse_pos_x, mouse_delta_x, mouse_delta_y);
     }
 
     if (GetActiveWindow() == window_handle) {
