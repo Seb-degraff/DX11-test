@@ -29,29 +29,32 @@ static void lock_cursor()
     LONG locked_x = pos.x;
     LONG locked_y = pos.y;
 
-    RECT client_rect = {
+    RECT client_rect;
+    GetWindowRect(window_handle, &client_rect);
+
+    /*RECT client_rect = {
         locked_x,
         locked_y,
         locked_x,
         locked_y
-    };
+    };*/
 
     ShowCursor(false); // does not seem to work :(
 
     ClipCursor(&client_rect);
 
-    /* enable raw input for mouse, starts sending WM_INPUT messages to WinProc (see GLFW) */
-    const RAWINPUTDEVICE rid = {
-        0x01,   // usUsagePage: HID_USAGE_PAGE_GENERIC
-        0x02,   // usUsage: HID_USAGE_GENERIC_MOUSE
-        0,      // dwFlags
-        window_handle    // hwndTarget
-    };
+    ///* enable raw input for mouse, starts sending WM_INPUT messages to WinProc (see GLFW) */
+    //const RAWINPUTDEVICE rid = {
+    //    0x01,   // usUsagePage: HID_USAGE_PAGE_GENERIC
+    //    0x02,   // usUsage: HID_USAGE_GENERIC_MOUSE
+    //    0,      // dwFlags
+    //    window_handle    // hwndTarget
+    //};
 
-    if (!RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
-        LOG(L"RegisterRawInputDevices() failed (on mouse lock).\n");
-        exit(1);
-    }
+    //if (!RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+    //    LOG(L"RegisterRawInputDevices() failed (on mouse lock).\n");
+    //    exit(1);
+    //}
 }
 
 static bool input_recieve_event (HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
@@ -60,10 +63,12 @@ static bool input_recieve_event (HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpa
         case WM_MOUSEMOVE: {
             mouse_pos_x = GET_X_LPARAM(lparam);
             mouse_pos_y = GET_Y_LPARAM(lparam);
+            //LOG(L"(%i; %i)", mouse_pos_x, mouse_pos_y);
             return true;
         }
         case WM_LBUTTONDOWN: {
             lock_cursor();
+            return true;
         }
         case WM_KEYDOWN: {
             if (wparam >= 0 && wparam < KEY_COUNT) {
@@ -81,27 +86,27 @@ static bool input_recieve_event (HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpa
             }
         }
         case WM_INPUT: {
-            // NOTE(seb): raw mouse input during mouse-lock, taken from sokol_app.h
-            HRAWINPUT ri = (HRAWINPUT) lparam;
-            uint8_t raw_input_data[sizeof(RAWINPUT)];
-            UINT size = sizeof(raw_input_data);
-            // see: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getrawinputdata
-            if ((UINT)-1 == GetRawInputData(ri, RID_INPUT, &raw_input_data, &size, sizeof(RAWINPUTHEADER))) {
-                LOG(L"GetRawInputData() failed\n");
-                exit(1);
-                break;
-            }
-            const RAWINPUT* raw_mouse_data = (const RAWINPUT*) &raw_input_data;
-            if ((raw_mouse_data->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) == false) { // We expect movement deltas, see sokol_app for the absolute case.
-                /* mouse reports movement delta (this seems to be the common case) */
-                mouse_delta_x = (float)raw_mouse_data->data.mouse.lLastX;
-                mouse_delta_y = (float)raw_mouse_data->data.mouse.lLastY;
-                mouse_delta_is_fresh = true;
-                return true;
-            }
-            else {
-                //LOG(L"damn");
-            }
+            //// NOTE(seb): raw mouse input during mouse-lock, taken from sokol_app.h
+            //HRAWINPUT ri = (HRAWINPUT) lparam;
+            //uint8_t raw_input_data[sizeof(RAWINPUT)];
+            //UINT size = sizeof(raw_input_data);
+            //// see: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getrawinputdata
+            //if ((UINT)-1 == GetRawInputData(ri, RID_INPUT, &raw_input_data, &size, sizeof(RAWINPUTHEADER))) {
+            //    LOG(L"GetRawInputData() failed\n");
+            //    exit(1);
+            //    break;
+            //}
+            //const RAWINPUT* raw_mouse_data = (const RAWINPUT*) &raw_input_data;
+            //if ((raw_mouse_data->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) == false) { // We expect movement deltas, see sokol_app for the absolute case.
+            //    /* mouse reports movement delta (this seems to be the common case) */
+            //    mouse_delta_x = (float)raw_mouse_data->data.mouse.lLastX;
+            //    mouse_delta_y = (float)raw_mouse_data->data.mouse.lLastY;
+            //    mouse_delta_is_fresh = true;
+            //    return true;
+            //}
+            //else {
+            //    //LOG(L"damn");
+            //}
         }
     }
     return false;
@@ -110,30 +115,32 @@ static bool input_recieve_event (HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpa
 void input_tick()
 {
     if (last_mouse_pos_x != 0 && last_mouse_pos_y != 0) {
-        //mouse_delta_x = mouse_pos_x - last_mouse_pos_x;
-        //mouse_delta_y = mouse_pos_y - last_mouse_pos_y;
-        //LOG(L"(%i - %i = %f; %f)", mouse_pos_x, last_mouse_pos_x, mouse_delta_x, mouse_delta_y);
+        mouse_delta_x = mouse_pos_x - last_mouse_pos_x;
+        mouse_delta_y = mouse_pos_y - last_mouse_pos_y;
+        LOG(L"(%i - %i = %f; %f)", mouse_pos_x, last_mouse_pos_x, mouse_delta_x, mouse_delta_y);
     }
 
-    //if (GetActiveWindow() == window_handle) {
-    //    RECT rect;
-    //    int res = GetWindowRect(window_handle, &rect);
-    //    assert(res != 0);
-    //    mouse_pos_x = 800;//(rect.left + rect.right) / 2;
-    //    mouse_pos_y = 500;//(rect.top + rect.bottom) / 2;
-    //    //ShowCursor(false);
-    //    res = SetCursorPos(mouse_pos_x, mouse_pos_y);
-    //    assert(res != 0);
-    //}
+    if (GetActiveWindow() == window_handle) {
+        RECT rect;
+        int res = GetWindowRect(window_handle, &rect);
+        assert(res != 0);
+        mouse_pos_x = (rect.left + rect.right) / 2;
+        mouse_pos_y = (rect.top + rect.bottom) / 2;
+        //ShowCursor(false);
+        res = SetCursorPos(mouse_pos_x, mouse_pos_y);
+        mouse_pos_x += -rect.left - 8;
+        mouse_pos_y += -rect.top - 31;
+        assert(res != 0);
+    }
 
     last_mouse_pos_x = mouse_pos_x;
     last_mouse_pos_y = mouse_pos_y;
 
-    if (!mouse_delta_is_fresh) {
-        mouse_delta_x = 0;
-        mouse_delta_y = 0;
-    }
-    mouse_delta_is_fresh = false;
+    //if (!mouse_delta_is_fresh) {
+    //    mouse_delta_x = 0;
+    //    mouse_delta_y = 0;
+    //}
+    //mouse_delta_is_fresh = false;
 }
 
 struct Vec2i {

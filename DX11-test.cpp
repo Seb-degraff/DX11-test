@@ -32,7 +32,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lpar
     }
 
     if (input_recieve_event(hwnd, umsg, wparam, lparam)) {
-        return 0;
+        return 1;
     }
 
     return DefWindowProc(hwnd, umsg, wparam, lparam);
@@ -160,7 +160,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     // Loop until there is a quit message from the window or the user.
     while (1) {
         // Handle the windows messages.
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
@@ -217,8 +217,8 @@ bool is_wall(int x, int y)
 void draw_frame()
 {
     input_tick();
-    _player_rot.y += get_mouse_delta().x * 0.4f;
-    _player_rot.x += get_mouse_delta().y * 0.4f;
+    _player_rot.y += get_mouse_delta().x * 0.1f;
+    _player_rot.x += get_mouse_delta().y * 0.1f;
     if (_player_rot.x > 45.f) _player_rot.x = 45.f;
     if (_player_rot.x < -45.f) _player_rot.x = -45.f;
 
