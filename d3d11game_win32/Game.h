@@ -85,6 +85,7 @@ class Game
 public:
     float m_cam_rot_y;
     vec3_t _player_pos;
+    vec3_t _player_vel;
     vec3_t _player_rot;
 
     Game() noexcept;

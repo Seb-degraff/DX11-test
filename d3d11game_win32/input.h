@@ -16,7 +16,7 @@ static float mouse_delta_y;
 #define KEY_A 0x41
 #define KEY_COUNT (0xFE + 1)
 static bool keys[KEY_COUNT];
-//static bool keys_last[];
+static bool keys_last[KEY_COUNT];
 
 static bool cursor_locked = false;
 static bool mouse_delta_is_fresh = false;
@@ -141,6 +141,8 @@ void input_tick()
     last_mouse_pos_x = mouse_pos_x;
     last_mouse_pos_y = mouse_pos_y;
 
+    memcpy(keys_last, keys, sizeof(keys));
+
     //if (!mouse_delta_is_fresh) {
     //    mouse_delta_x = 0;
     //    mouse_delta_y = 0;
@@ -172,4 +174,14 @@ Vec2i get_wasd()
     ret.y -= keys[KEY_A + ('S' - 'A')];
     ret.y += keys[KEY_A + ('W' - 'A')];
     return ret;
+}
+
+bool key_just_pressed(int keycode)
+{
+    return keys[keycode] && !keys_last[keycode];
+}
+
+bool key_is_pressed(int keycode)
+{
+    return keys[keycode];
 }

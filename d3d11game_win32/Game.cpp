@@ -40,6 +40,30 @@ void log_impl(const wchar_t* file, int line, LPCWSTR format, ...)
 }
 
 
+
+uint8_t cells[16 * 16 * 16] = { 0 };
+
+uint8_t cell_at(int x, int y, int z)
+{
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
+        return 0;
+    }
+    return cells[z * 16 * 16 + y * 16 + x];
+}
+
+void cell_set_at(int x, int y, int z, uint8_t val)
+{
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
+        LOG(L"Tried to set a tile out of bounds (%i, %i, %i).", x, y, z);
+        return;
+    }
+    cells[z * 16 * 16 + y * 16 + x] = val;
+}
+
+
+
+
+
 Game::Game() noexcept :
     m_outputWidth(800),
     m_outputHeight(600),
@@ -53,6 +77,8 @@ void Game::Initialize(HWND window, int width, int height)
     g_window = window;
     m_outputWidth = std::max(width, 1);
     m_outputHeight = std::max(height, 1);
+
+    _player_pos = vec3(4, 1, 4);
 
     CreateDevice();
 
@@ -82,6 +108,16 @@ void Game::Tick()
 #define degToRad(angleInDegrees) ((angleInDegrees) * __M_PI / 180.0)
 #define radToDeg(angleInRadians) ((angleInRadians) * 180.0 / __M_PI)
 
+#define my_max(a,b) (((a) > (b)) ? (a) : (b))
+#define my_min(a,b) (((a) < (b)) ? (a) : (b))
+
+float clampf(float val, float min, float max)
+{
+    if (val < min) return min;
+    if (val > max) return max;
+    return val;
+}
+
 // Updates the world.
 void Game::Update(DX::StepTimer const& timer)
 {
@@ -91,16 +127,37 @@ void Game::Update(DX::StepTimer const& timer)
 
     _player_rot.y += get_mouse_delta().x * 0.1f;
     _player_rot.x += get_mouse_delta().y * 0.1f;
-    if (_player_rot.x > 45.f) _player_rot.x = 45.f;
-    if (_player_rot.x < -45.f) _player_rot.x = -45.f;
+    if (_player_rot.x > 90.f) _player_rot.x = 90.f;
+    if (_player_rot.x < -90.f) _player_rot.x = -90.f;
 
     Vec2i wasd = get_wasd();
     vec2_t movement = vec2(0.03f * wasd.x, 0.03f * wasd.y);
 
-    _player_pos.x += movement.x * cosf((float)degToRad(_player_rot.y)) + movement.y * sinf((float)degToRad(_player_rot.y));
-    _player_pos.z += movement.y * cosf((float)degToRad(_player_rot.y)) + movement.x * -sinf((float)degToRad(_player_rot.y));
+    // gravity
+    if (_player_vel.y > -5) {
+        _player_vel.y -= (5.f / 60.f);
+    }
 
-    LOG(L"PLAYER POS %f, %f", _player_pos.x, _player_pos.y);
+    if (key_is_pressed(VK_SPACE)) {
+        _player_vel.y = 2;
+        LOG(L"JUMP!!");
+    }
+
+    float limit_x_h = (cell_at(floorl(_player_pos.x) + 1, floorl(_player_pos.y), floorl(_player_pos.z)) != 0) ? floor(_player_pos.x) + 1.f : 100000;
+    float limit_x_l = (cell_at(floorl(_player_pos.x) - 1, floorl(_player_pos.y), floorl(_player_pos.z)) != 0) ? floor(_player_pos.x) + 0.1f : -100000;
+    float limit_z_h = (cell_at(floorl(_player_pos.x), floorl(_player_pos.y), floorl(_player_pos.z) + 1) != 0) ? floor(_player_pos.z) + 1.f : 100000;
+    float limit_z_l = (cell_at(floorl(_player_pos.x), floorl(_player_pos.y), floorl(_player_pos.z) - 1) != 0) ? floor(_player_pos.z) + 0.1f : -100000;
+
+    _player_pos.x = clampf(_player_pos.x + movement.x * cosf((float)degToRad(_player_rot.y)) + movement.y * sinf((float)degToRad(_player_rot.y)), limit_x_l, limit_x_h);
+    _player_pos.z = clampf(_player_pos.z + movement.y * cosf((float)degToRad(_player_rot.y)) + movement.x * -sinf((float)degToRad(_player_rot.y)), limit_z_l, limit_z_h);
+
+    float ground = -0.5f;
+    uint8_t below_type = cell_at(floorl(_player_pos.x), floorl(_player_pos.y) - 1, floorl(_player_pos.z));
+    if (below_type != 0) {
+        ground = floor(_player_pos.y);
+    }
+
+    _player_pos.y = my_max(ground, _player_pos.y + _player_vel.y * (1/60.f));
 
     Transforms trans;
 
@@ -516,37 +573,29 @@ void generate_floor(Geometry* g, vec3_t pos, vec3_t color)
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.02f;
 
-uint8_t cells[16 * 16 * 16] = { 0 };
-
-uint8_t cell_at(int x, int y, int z)
-{
-    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
-        return 0;
-    }
-    return cells[z * 16 * 16 + y * 16 + x];
-}
-
-void cell_set_at(int x, int y, int z, uint8_t val)
-{
-    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
-        LOG(L"Tried to set a tile out of bounds (%i, %i, %i).", x, y, z);
-        return;
-    }
-    cells[z * 16 * 16 + y * 16 + x] = val;
-}
-
 // These are the resources that depend on the device.
 void Game::CreateDevice()
 {
-    cell_set_at(0, 0, 0, 1);
-    cell_set_at(1, 0, 0, 1);
-    cell_set_at(2, 0, 0, 1);
-    cell_set_at(3, 0, 0, 1);
+    cell_set_at(0, 1, 0, 1);
     cell_set_at(1, 1, 0, 1);
-    cell_set_at(4, 1, 0, 1);
+    cell_set_at(2, 1, 0, 1);
     cell_set_at(3, 1, 0, 1);
-    cell_set_at(3, 0, 1, 1);
-    cell_set_at(2, 0, 1, 1);
+    cell_set_at(1, 2, 0, 1);
+    cell_set_at(4, 2, 0, 1);
+    cell_set_at(3, 2, 0, 1);
+    cell_set_at(3, 1, 1, 1);
+    cell_set_at(2, 1, 1, 1);
+
+    cell_set_at(5, 1, 1, 1);
+    cell_set_at(5, 1, 2, 1);
+    cell_set_at(5, 1, 3, 1);
+    cell_set_at(6, 1, 3, 1);
+
+    for (int x = 0; x < 16; x++) {
+        for (int z = 0; z < 16; z++) {
+            cell_set_at(x, 0, z, 1);
+        }
+    }
 
     UINT creationFlags = 0;
 
@@ -645,7 +694,6 @@ void Game::CreateDevice()
                 for (int x = 0; x < 16; x++) {
                     uint8_t cell_type = cell_at(x, y, z);
                     if (cell_type != 0) {
-                        LOG(L"heya!");
                         //generate_floor(&geom, vec3(x, y, z), vec3(1, 1, 1));
                         // x-
                         if (cell_at(x - 1, y, z) == 0) {
