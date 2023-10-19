@@ -5,6 +5,21 @@
 #pragma once
 
 #include "StepTimer.h"
+//#include <directxmath.h>
+
+
+struct MatrixBufferType
+{
+    DirectX::XMMATRIX world;
+    DirectX::XMMATRIX view;
+    DirectX::XMMATRIX projection;
+};
+
+struct VertexType
+{
+    DirectX::XMFLOAT3 position;
+    DirectX::XMFLOAT4 color;
+};
 
 
 // A basic game implementation that creates a D3D11 device and
@@ -41,6 +56,9 @@ public:
 private:
 
     void Update(DX::StepTimer const& timer);
+    void shader_set_parameters();
+    void shader_output_error(ID3D10Blob* errorMessage, HWND hwnd, WCHAR* shaderFilename);
+    bool shader_load(HWND hwnd, ID3D11Device* device, WCHAR* vsFilename, WCHAR* psFilename);
     void Render();
 
     void Clear();
@@ -66,4 +84,75 @@ private:
 
     // Rendering loop timer.
     DX::StepTimer                                   m_timer;
+
+    // Geometry
+    ID3D11Buffer* m_vertexBuffer;
+    ID3D11Buffer* m_indexBuffer;
+
+    // Shader related, in a way, you know
+    ID3D11VertexShader* m_vertexShader;
+    ID3D11PixelShader* m_pixelShader;
+    ID3D11InputLayout* m_layout;
+    ID3D11Buffer* m_matrixBuffer;
+
+    DirectX::XMMATRIX m_projectionMatrix;
+    DirectX::XMMATRIX m_worldMatrix;
+    DirectX::XMMATRIX m_viewMatrix;
+    DirectX::XMMATRIX m_orthoMatrix;
+    D3D11_VIEWPORT m_viewport;
+};
+
+
+struct vec2_t vec2(float x, float y);
+
+struct vec2_t
+{
+    float x;
+    float y;
+
+    inline vec2_t operator+(const vec2_t& other)
+    {
+        return vec2(x + other.x, y + other.y);
+    }
+};
+
+inline vec2_t vec2(float x, float y)
+{
+    vec2_t vec;
+
+    vec.x = x;
+    vec.y = y;
+
+    return vec;
+}
+
+struct vec3_t vec3(float x, float y, float z);
+
+struct vec3_t
+{
+    float x;
+    float y;
+    float z;
+
+    inline vec3_t operator+(const vec3_t& other)
+    {
+        return vec3(x + other.x, y + other.y, z + other.z);
+    }
+};
+
+inline vec3_t vec3(float x, float y, float z)
+{
+    vec3_t vec;
+
+    vec.x = x;
+    vec.y = y;
+    vec.z = z;
+
+    return vec;
+}
+
+struct Transforms
+{
+    vec3_t pos;
+    vec3_t rot;
 };
