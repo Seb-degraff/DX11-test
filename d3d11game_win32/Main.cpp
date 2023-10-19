@@ -110,6 +110,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     return static_cast<int>(msg.wParam);
 }
 
+bool input_recieve_event(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
+
 // Windows procedure
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -267,6 +269,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         // to any mnemonic or accelerator key. Ignore so we don't produce an error beep.
         return MAKELRESULT(0, MNC_CLOSE);
     }
+
+    input_recieve_event(hWnd, message, wParam, lParam);
 
     return DefWindowProc(hWnd, message, wParam, lParam);
 }

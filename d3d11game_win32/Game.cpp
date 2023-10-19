@@ -6,6 +6,7 @@
 #include "Game.h"
 #include <fstream>
 #include <d3dcompiler.h>
+#include "input.h"
 
 extern void ExitGame() noexcept;
 
@@ -13,8 +14,33 @@ using namespace DirectX;
 
 using Microsoft::WRL::ComPtr;
 
+HWND g_window;
+
+#define WIDE2(x) L##x
+#define WIDE1(x) WIDE2(x)
+
+#define LOG(...) log_impl(WIDE1(__FILE__), __LINE__, __VA_ARGS__)
+void log_impl(const wchar_t* file, int line, LPCWSTR format, ...);
+
+
+#include <stdio.h>
+#include <vadefs.h>
+
+void log_impl(const wchar_t* file, int line, LPCWSTR format, ...)
+{
+    WCHAR buffer[2048];
+    WCHAR buffer2[2048];
+    va_list arg;
+    va_start(arg, line);
+    _vsnwprintf_s(buffer, sizeof(buffer), format, arg);
+    _snwprintf_s(buffer2, sizeof(buffer2), L"%s(%i) %s\n", file, line, buffer);
+    va_end(arg);
+
+    OutputDebugString(buffer2);
+}
+
+
 Game::Game() noexcept :
-    m_window(nullptr),
     m_outputWidth(800),
     m_outputHeight(600),
     m_featureLevel(D3D_FEATURE_LEVEL_9_1)
@@ -24,7 +50,7 @@ Game::Game() noexcept :
 // Initialize the Direct3D resources required to run.
 void Game::Initialize(HWND window, int width, int height)
 {
-    m_window = window;
+    g_window = window;
     m_outputWidth = std::max(width, 1);
     m_outputHeight = std::max(height, 1);
 
@@ -51,13 +77,42 @@ void Game::Tick()
     Render();
 }
 
+
+#define __M_PI   3.14159265358979323846264338327950288
+#define degToRad(angleInDegrees) ((angleInDegrees) * __M_PI / 180.0)
+#define radToDeg(angleInRadians) ((angleInRadians) * 180.0 / __M_PI)
+
 // Updates the world.
 void Game::Update(DX::StepTimer const& timer)
 {
     float elapsedTime = float(timer.GetElapsedSeconds());
 
+    input_tick();
+
+    _player_rot.y += get_mouse_delta().x * 0.1f;
+    _player_rot.x += get_mouse_delta().y * 0.1f;
+    if (_player_rot.x > 45.f) _player_rot.x = 45.f;
+    if (_player_rot.x < -45.f) _player_rot.x = -45.f;
+
+    Vec2i wasd = get_wasd();
+    vec2_t movement = vec2(0.03f * wasd.x, 0.03f * wasd.y);
+
+    _player_pos.x += movement.x * cosf((float)degToRad(_player_rot.y)) + movement.y * sinf((float)degToRad(_player_rot.y));
+    _player_pos.z += movement.y * cosf((float)degToRad(_player_rot.y)) + movement.x * -sinf((float)degToRad(_player_rot.y));
+
+    LOG(L"PLAYER POS %f, %f", _player_pos.x, _player_pos.y);
+
+    Transforms trans;
+    trans.pos = _player_pos + vec3(0, 0.7f, 0);
+    trans.rot = _player_rot;
+
+    trans.pos = _player_pos + vec3(0, 0.7f, 0);
+    trans.rot = _player_rot;
+
+    cam_transforms = trans;
+
     // TODO: Add your game logic here.
-    elapsedTime;
+    
 }
 
 
@@ -282,10 +337,7 @@ void Game::Render()
         /*position.x = sinf(frame_num / 60.f) * 5.f;
         position.y = 0.f;
         position.z = cosf(frame_num / 60.f) * -5.f;*/
-
-        Transforms cam_transforms = { 0 };
-        cam_transforms.pos.z = -1;
-
+;
         position.x = cam_transforms.pos.x;
         position.y = cam_transforms.pos.y;
         position.z = cam_transforms.pos.z;
@@ -396,7 +448,7 @@ void Game::OnResuming()
 
 void Game::OnWindowSizeChanged(int width, int height)
 {
-    if (!m_window)
+    if (!g_window)
         return;
 
     m_outputWidth = std::max(width, 1);
@@ -521,7 +573,7 @@ void Game::CreateDevice()
 
     // TODO: Initialize device dependent objects here (independent of window size).
        
-    shader_load(m_window, m_d3dDevice.Get(), (WCHAR*)L"../../../../../color.vs", (WCHAR*)L"../../../../../color.ps");
+    shader_load(g_window, m_d3dDevice.Get(), (WCHAR*)L"../../../../../color.vs", (WCHAR*)L"../../../../../color.ps");
 
     {
         VertexType* vertices;
@@ -674,7 +726,7 @@ void Game::CreateResources()
         // Create a SwapChain from a Win32 window.
         DX::ThrowIfFailed(dxgiFactory->CreateSwapChainForHwnd(
             m_d3dDevice.Get(),
-            m_window,
+            g_window,
             &swapChainDesc,
             &fsSwapChainDesc,
             nullptr,
@@ -682,7 +734,7 @@ void Game::CreateResources()
             ));
 
         // This template does not support exclusive fullscreen mode and prevents DXGI from responding to the ALT+ENTER shortcut.
-        DX::ThrowIfFailed(dxgiFactory->MakeWindowAssociation(m_window, DXGI_MWA_NO_ALT_ENTER));
+        DX::ThrowIfFailed(dxgiFactory->MakeWindowAssociation(g_window, DXGI_MWA_NO_ALT_ENTER));
     }
 
     // Obtain the backbuffer for this window which will be the final 3D rendertarget.

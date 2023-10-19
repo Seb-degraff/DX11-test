@@ -236,7 +236,7 @@ void draw_frame()
     float max_x = is_wall(cell_coord.x + 1, cell_coord.y) ? cell_coord.x + 1 - thick : +100000;
     float min_y = is_wall(cell_coord.x, cell_coord.y - 1) ? cell_coord.y + thick : -100000;
     float max_y = is_wall(cell_coord.x, cell_coord.y + 1) ? cell_coord.y + 1 - thick : +100000;
-    //LOG(L"min_x: %f", min_x);
+    LOG(L"min_x: %f", min_x);
 
     _player_pos.x += movement.x * cosf((float) degToRad(_player_rot.y)) + movement.y * sinf((float) degToRad(_player_rot.y));
     _player_pos.z += movement.y * cosf((float) degToRad(_player_rot.y)) + movement.x * -sinf((float) degToRad(_player_rot.y));

@@ -36,7 +36,7 @@ add_executable(${PROJECT_NAME} WIN32
     Main.cpp
     StepTimer.h
     pch.h
- "shader.h")
+ "shader.h" "input.h")
 
 if(NOT MINGW)
     target_precompile_headers(${PROJECT_NAME} PRIVATE pch.h)

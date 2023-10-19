@@ -399,7 +399,7 @@ bool renderer_init(int screen_width, int screen_height, HWND hwnd)
 	m_projectionMatrix = XMMatrixPerspectiveFovLH(fieldOfView, screenAspect, SCREEN_NEAR, SCREEN_DEPTH);
 
 	// Initialize the world matrix to the identity matrix.
-	m_worldMatrix = XMMatrixIdentity();
+	m_worldMatrix = XMMatrixIdentity(); 
 
 	// Create an orthographic projection matrix for 2D rendering.
 	m_orthoMatrix = XMMatrixOrthographicLH((float)screen_width, (float)screen_height, SCREEN_NEAR, SCREEN_DEPTH);
@@ -734,6 +734,8 @@ bool shader_load(HWND hwnd, WCHAR* vsFilename, WCHAR* psFilename)
 	// Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
 	result = device->CreateBuffer(&matrixBufferDesc, NULL, &m_matrixBuffer);
 	CHECK_RESULT(L"CreateBuffer");
+
+	return true;
 }
 
 void shader_unload()
