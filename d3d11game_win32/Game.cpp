@@ -103,10 +103,8 @@ void Game::Update(DX::StepTimer const& timer)
     LOG(L"PLAYER POS %f, %f", _player_pos.x, _player_pos.y);
 
     Transforms trans;
-    trans.pos = _player_pos + vec3(0, 0.7f, 0);
-    trans.rot = _player_rot;
 
-    trans.pos = _player_pos + vec3(0, 0.7f, 0);
+    trans.pos = _player_pos + vec3(0, 1.7f, 0);
     trans.rot = _player_rot;
 
     cam_transforms = trans;
@@ -384,7 +382,7 @@ void Game::Render()
         m_d3dContext->PSSetShader(m_pixelShader, NULL, 0);
 
         // Render the triangle.
-        m_d3dContext->DrawIndexed(12, 0, 0);
+        m_d3dContext->DrawIndexed(m_indices_count, 0, 0);
     }
 
     Present();
@@ -485,6 +483,7 @@ VertexType vertex(vec3_t pos, vec3_t col)
     return ret;
 }
 
+
 void generate_quad(Geometry* g, vec3_t pos_a, vec3_t pos_b, vec3_t pos_c, vec3_t pos_d, vec3_t color)
 {
     // TODO: optimize
@@ -504,12 +503,51 @@ void generate_quad(Geometry* g, vec3_t pos_a, vec3_t pos_b, vec3_t pos_c, vec3_t
     g->indices_current += 6;
 }
 
+void generate_floor(Geometry* g, vec3_t pos, vec3_t color)
+{
+    generate_quad(g, vec3(0, 0, 0) + pos, vec3(0, 0, 1) + pos, vec3(1, 0, 1) + pos, vec3(1, 0, 0) + pos, color);
+}
+
+//void generate_face(Geometry* geom, vec3_t min, vec3_t max, vec3_t color)
+//{
+//    generate_quad(geom, min, vec3(min.x, max.y, max.z), vec3(max.x, max.y, max.z), vec3(min.x, max.y, max.z), vec3(1, 1, 1));
+//}
+
 const float SCREEN_DEPTH = 1000.0f;
 const float SCREEN_NEAR = 0.02f;
+
+uint8_t cells[16 * 16 * 16] = { 0 };
+
+uint8_t cell_at(int x, int y, int z)
+{
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
+        return 0;
+    }
+    return cells[z * 16 * 16 + y * 16 + x];
+}
+
+void cell_set_at(int x, int y, int z, uint8_t val)
+{
+    if (x < 0 || x >= 16 || y < 0 || y >= 16 || z < 0 || z >= 16) {
+        LOG(L"Tried to set a tile out of bounds (%i, %i, %i).", x, y, z);
+        return;
+    }
+    cells[z * 16 * 16 + y * 16 + x] = val;
+}
 
 // These are the resources that depend on the device.
 void Game::CreateDevice()
 {
+    cell_set_at(0, 0, 0, 1);
+    cell_set_at(1, 0, 0, 1);
+    cell_set_at(2, 0, 0, 1);
+    cell_set_at(3, 0, 0, 1);
+    cell_set_at(1, 1, 0, 1);
+    cell_set_at(4, 1, 0, 1);
+    cell_set_at(3, 1, 0, 1);
+    cell_set_at(3, 0, 1, 1);
+    cell_set_at(2, 0, 1, 1);
+
     UINT creationFlags = 0;
 
 #ifdef _DEBUG
@@ -602,8 +640,45 @@ void Game::CreateDevice()
         geom.indices_current = 0;
         geom.vertices_current = 0;
 
+        for (int z = 0; z < 16; z++) {
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    uint8_t cell_type = cell_at(x, y, z);
+                    if (cell_type != 0) {
+                        LOG(L"heya!");
+                        //generate_floor(&geom, vec3(x, y, z), vec3(1, 1, 1));
+                        // x-
+                        if (cell_at(x - 1, y, z) == 0) {
+                            generate_quad(&geom, vec3(x, y, z), vec3(x, y, z+1), vec3(x, y+1, z+1), vec3(x, y+1, z), vec3(1, 0, 0));
+                        }
+                        // x+
+                        if (cell_at(x + 1, y, z) == 0) {
+                            //generate_quad(&geom, vec3(x, y, z), vec3(x, y, z + 1), vec3(x, y + 1, z + 1), vec3(x, y + 1, z), vec3(1, 0, 0));
+                            generate_quad(&geom, vec3(x+1, y, z), vec3(x+1, y + 1, z), vec3(x+1, y + 1, z + 1), vec3(x+1, y, z + 1), vec3(1, 1, 0));
+                        }
+                        // z+
+                        if (cell_at(x, y, z + 1) == 0) {
+                            generate_quad(&geom, vec3(x, y, z + 1), vec3(x + 1, y, z + 1), vec3(x + 1, y + 1, z + 1), vec3(x, y + 1, z + 1), vec3(0, 1, 0));
+                        }
+                        // z-
+                        if (cell_at(x, y, z - 1) == 0) {
+                            generate_quad(&geom, vec3(x, y, z), vec3(x, y + 1, z), vec3(x + 1, y + 1, z), vec3(x + 1, y, z), vec3(0, 1, 0));
+                        }
+                        // y+
+                        if (cell_at(x, y + 1, z) == 0) {
+                            generate_quad(&geom, vec3(x, y + 1, z), vec3(x, y + 1, z + 1), vec3(x + 1, y + 1, z + 1), vec3(x + 1, y + 1, z), vec3(0, 0, 1));
+                        }
+                        // y-
+                        if (cell_at(x, y - 1, z) == 0) {
+                            generate_quad(&geom, vec3(x, y, z), vec3(x + 1, y, z), vec3(x + 1, y, z + 1), vec3(x, y, z + 1), vec3(0, 0, 1));
+                        }
+                    }
+                }
+            }
+        }
+
         generate_quad(&geom, vec3(0.6f, 0, 0), vec3(0, 1, 0), vec3(-0.6f, 0, 0), vec3(0, -1, 0), vec3(1, 1, 1));
-        generate_quad(&geom, vec3(0.6f, 0, 0), vec3(0, -1, 0), vec3(-0.6f, 0, 0), vec3(0, 1, 0), vec3(1, 1, 1));
+        //generate_quad(&geom, vec3(0.6f, 0, 0), vec3(0, -1, 0), vec3(-0.6f, 0, 0), vec3(0, 1, 0), vec3(1, 1, 1));
         //m_vertexCount = geom.vertices_current;
         //m_indexCount = geom.indices_current;
 
@@ -652,6 +727,8 @@ void Game::CreateDevice()
 
         // Create the index buffer.
         DX::ThrowIfFailed(device->CreateBuffer(&indexBufferDesc, &indexData, &m_indexBuffer));
+
+        m_indices_count = geom.indices_current;
 
         // Release the arrays now that the vertex and index buffers have been created and loaded.
         delete[] vertices;

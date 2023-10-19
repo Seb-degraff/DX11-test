@@ -146,6 +146,7 @@ private:
     // Geometry
     ID3D11Buffer* m_vertexBuffer;
     ID3D11Buffer* m_indexBuffer;
+    int m_indices_count;
 
     // Shader related, in a way, you know
     ID3D11VertexShader* m_vertexShader;
